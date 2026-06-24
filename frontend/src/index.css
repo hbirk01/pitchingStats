@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: #0a0e1a;
+    color: #e2e8f0;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f1523;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #243052;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-800 border border-surface-600 rounded-xl p-5;
+  }
+
+  .stat-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .grade-elite {
+    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+  }
+  .grade-plus {
+    @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+  .grade-above {
+    @apply bg-cyan-500/20 text-cyan-400 border border-cyan-500/30;
+  }
+  .grade-avg {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  .grade-below {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+}
