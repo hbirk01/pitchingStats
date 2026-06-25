@@ -29,3 +29,5 @@ export const getLeverageSplits = (playerId, season) => api.get(`/pitching/${play
 export const getPitchTypeDeepDive = (playerId, pitchType, season) => api.get(`/pitching/${playerId}/pitch-type/${pitchType}`, { params: { season } })
 export const getTeams = () => api.get('/players/teams')
 export const getTeamPitching = (teamId, season) => api.get(`/players/team/${teamId}`, { params: { season } })
+export const getLiveGames  = ()         => api.get('/live/games')
+export const getLiveGame   = (gamePk)   => api.get(`/live/game/${gamePk}`)

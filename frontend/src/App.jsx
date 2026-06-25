@@ -8,6 +8,7 @@ import TeamPage from './pages/TeamPage'
 import GameLogPage from './pages/GameLogPage'
 import ComparePage from './pages/ComparePage'
 import PitchTypeDeepDive from './pages/PitchTypeDeepDive'
+import LivePage from './pages/LivePage'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/player/:playerId/game-log" element={<GameLogPage />} />
         <Route path="/player/:playerId/pitch/:pitchType" element={<PitchTypeDeepDive />} />
         <Route path="/compare" element={<ComparePage />} />
+        <Route path="/live" element={<LivePage />} />
       </Routes>
     </Layout>
   )

@@ -68,31 +68,36 @@ export default function PlayerDashboard() {
     setLoading(true)
     setError(null)
     try {
+      const safe = (p) => p.then(r => r.data).catch(() => null)
       const [d, b, r, sp, traj, si] = await Promise.all([
-        getPitcherDashboard(playerId, season),
-        getBreakoutAnalysis(playerId, season),
-        getRegressionAnalysis(playerId, season),
-        getPitcherSplits(playerId, season),
-        getPitchTrajectories(playerId, season),
-        getPitcherSIERA(playerId, season),
+        getPitcherDashboard(playerId, season).then(r => r.data).catch(err => {
+          // Hard fail only if the server is completely unreachable (network error)
+          if (!err.response) throw err
+          return null
+        }),
+        safe(getBreakoutAnalysis(playerId, season)),
+        safe(getRegressionAnalysis(playerId, season)),
+        safe(getPitcherSplits(playerId, season)),
+        safe(getPitchTrajectories(playerId, season)),
+        safe(getPitcherSIERA(playerId, season)),
       ])
-      setDashboard(d.data)
-      setBreakout(b.data)
-      setRegression(r.data)
-      setSplits(sp.data)
-      setTrajectory(traj.data)
-      setSiera(si.data)
+      setDashboard(d)
+      setBreakout(b)
+      setRegression(r)
+      setSplits(sp)
+      setTrajectory(traj)
+      setSiera(si)
       // Non-blocking secondary fetches
-      getPitchComps(playerId, season).then(c => setComps(c.data)).catch(() => setComps({}))
-      getSeasonCompare(playerId, '2026,2025,2024,2023,2022,2021').then(c => setSeasonCompare(c.data)).catch(() => setSeasonCompare({}))
-      getPitchSequencing(playerId, season).then(r => setSequencing(r.data)).catch(() => setSequencing(null))
-      getArsenalGrades(playerId, season).then(r => setArsenalGrades(r.data)).catch(() => setArsenalGrades({}))
-      getRecentForm(playerId, season).then(r => setRecentForm(r.data)).catch(() => setRecentForm(null))
-      getBattedBall(playerId, season).then(r => setBattedBall(r.data)).catch(() => setBattedBall(null))
-      getFatigue(playerId, season).then(r => setFatigue(r.data)).catch(() => setFatigue(null))
-      getLeverageSplits(playerId, season).then(r => setLeverage(r.data)).catch(() => setLeverage(null))
+      safe(getPitchComps(playerId, season)).then(setComps)
+      safe(getSeasonCompare(playerId, '2026,2025,2024,2023,2022,2021')).then(setSeasonCompare)
+      safe(getPitchSequencing(playerId, season)).then(setSequencing)
+      safe(getArsenalGrades(playerId, season)).then(setArsenalGrades)
+      safe(getRecentForm(playerId, season)).then(setRecentForm)
+      safe(getBattedBall(playerId, season)).then(setBattedBall)
+      safe(getFatigue(playerId, season)).then(setFatigue)
+      safe(getLeverageSplits(playerId, season)).then(setLeverage)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load data — make sure the backend is running.')
+      setError('Could not reach the backend — make sure the server is running.')
     } finally {
       setLoading(false)
     }
@@ -116,7 +121,7 @@ export default function PlayerDashboard() {
   if (error) return (
     <div className="max-w-xl mx-auto mt-16">
       <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
-        <div className="text-red-400 font-semibold mb-2">Data Load Error</div>
+        <div className="text-red-400 font-semibold mb-2">Connection Error</div>
         <div className="text-slate-400 text-sm mb-4">{error}</div>
         <button onClick={load} className="flex items-center gap-2 mx-auto text-sm text-brand-400 hover:text-brand-300">
           <RefreshCw className="w-4 h-4" /> Retry
@@ -125,8 +130,27 @@ export default function PlayerDashboard() {
     </div>
   )
 
+  if (!dashboard) return (
+    <div className="max-w-xl mx-auto mt-16">
+      <div className="bg-surface-800 border border-surface-650 rounded-xl p-8 text-center">
+        <div className="text-4xl mb-3">⚾</div>
+        <div className="font-display text-lg font-bold text-ink-100 mb-2">No data for {playerName} in {season}</div>
+        <div className="text-ink-500 text-sm mb-5">This player may not have pitched in {season}, or data isn't available yet.</div>
+        <div className="flex gap-3 justify-center flex-wrap">
+          {[2026,2025,2024,2023].map(s => (
+            <button key={s} onClick={() => changeSeason(s)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${s === season ? 'bg-brand-600 text-white' : 'bg-surface-700 text-ink-300 hover:bg-surface-650'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
   const trad = dashboard?.traditional || {}
   const pred = dashboard?.predictive || {}
+  const statcastAvailable = dashboard?.statcast_available !== false
 
   const switchGroup = (grp) => {
     setActiveGroup(grp)
@@ -210,6 +234,17 @@ export default function PlayerDashboard() {
           ))}
         </div>
       </div>
+
+      {/* ── No Statcast banner ── */}
+      {!statcastAvailable && (
+        <div className="mb-5 flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl px-4 py-3 text-sm text-amber-300">
+          <span className="text-lg leading-none mt-0.5">⚠</span>
+          <div>
+            <span className="font-semibold">Statcast data unavailable for {season}.</span>
+            <span className="text-amber-400/70 ml-2">Traditional stats are shown where available. Pitch-level analytics require Statcast data — try an earlier season or check back once more games are tracked.</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Tab navigation: group level ── */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">

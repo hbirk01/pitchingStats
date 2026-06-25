@@ -8,7 +8,7 @@ const METRICS = [
 
 // Color interpolation: green (good) → gray → red (bad)
 function cellColor(val, min, max, goodHigh) {
-  if (val == null || max === min) return 'rgba(100,100,120,0.3)'
+  if (val == null || max === min) return 'rgba(30,33,60,0.85)'
   const t = (val - min) / (max - min) // 0 = min, 1 = max
   const score = goodHigh ? t : 1 - t // 1 = good
   if (score > 0.65) return `rgba(52,211,153,${0.2 + score * 0.5})`   // green
@@ -83,7 +83,7 @@ export default function ZoneHeatmap({ heatmap }) {
                       style={{ background: bg, minHeight: 44 }}
                     >
                       <div className="text-xs font-bold text-white drop-shadow">
-                        {val != null ? metricDef?.fmt(val) : ''}
+                        {val != null ? metricDef?.fmt(val) : cell.n > 0 ? '—' : ''}
                       </div>
                       <div className="text-[9px] text-slate-400">{cell.n > 0 ? `n=${cell.n}` : ''}</div>
                       {/* Tooltip */}

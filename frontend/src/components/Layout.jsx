@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, BarChart2, Home, GitCompareArrows, Menu, X } from 'lucide-react'
+import { Activity, BarChart2, Home, GitCompareArrows, Menu, X, Radio } from 'lucide-react'
 
 const navLinks = [
   { to: '/',            label: 'Home',        icon: Home },
   { to: '/leaderboard', label: 'Leaderboard', icon: BarChart2 },
   { to: '/compare',     label: 'Compare',     icon: GitCompareArrows },
+  { to: '/live',        label: 'Live',        icon: Radio },
 ]
 
 export default function Layout({ children }) {

@@ -106,15 +106,51 @@ def pitcher_dashboard(
 ):
     """Full pitcher dashboard: traditional + advanced + pitch metrics."""
     df = get_pitcher_statcast(player_id, season)
-    if df is None or df.empty:
-        raise HTTPException(404, f"No Statcast data found for player {player_id} in {season}")
+    statcast_available = df is not None and not df.empty
+
+    # All official base stats from MLB Stats API — never calculate what they track
+    mlb = _mlb_traditional_stats(player_id, season)
+
+    # If no Statcast data AND no MLB data for this season, it's a true miss
+    if not statcast_available and not mlb:
+        raise HTTPException(404, f"No data found for player {player_id} in {season}")
+
+    # If Statcast unavailable but MLB data exists, return partial (traditional only)
+    if not statcast_available:
+        return _sanitize({
+            "player_id": player_id,
+            "season": season,
+            "statcast_available": False,
+            "total_pitches": 0,
+            "games": mlb.get("games"),
+            "ip": mlb.get("ip"),
+            "traditional": {
+                "era": mlb.get("era"),
+                "whip": mlb.get("whip"),
+                "wins": mlb.get("wins"),
+                "losses": mlb.get("losses"),
+                "k_pct": mlb.get("k_pct"),
+                "bb_pct": mlb.get("bb_pct"),
+                "strikeouts": mlb.get("k"),
+                "walks": mlb.get("bb"),
+                "bf": mlb.get("bf"),
+                "babip": mlb.get("babip"),
+            },
+            "predictive": {"xba": None, "xwoba": None, "xera": None},
+            "pitch_summary": [],
+            "pitch_run_value": {},
+            "movement_profile": [],
+            "zone_vaa": {},
+            "tunneling": [],
+            "command": [],
+            "release_scatter": [],
+            "location_data": [],
+            "release_consistency": {},
+        })
 
     # Traditional aggregates
     total_pitches = len(df)
     games = df["game_pk"].nunique() if "game_pk" in df.columns else None
-
-    # All official base stats from MLB Stats API — never calculate what they track
-    mlb = _mlb_traditional_stats(player_id, season)
     era    = mlb.get("era")
     whip   = mlb.get("whip")
     wins   = mlb.get("wins")
@@ -211,6 +247,7 @@ def pitcher_dashboard(
     return _sanitize({
         "player_id": player_id,
         "season": season,
+        "statcast_available": True,
         "total_pitches": total_pitches,
         "games": games,
         "ip": ip,
