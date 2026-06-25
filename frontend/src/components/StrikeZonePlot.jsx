@@ -1,11 +1,5 @@
 import React, { useState } from 'react'
-
-const PITCH_COLORS = {
-  FF: '#f87171', SI: '#fb923c', FC: '#fbbf24',
-  SL: '#22d3ee', ST: '#38bdf8', SV: '#93c5fd',
-  CU: '#60a5fa', KC: '#818cf8',
-  CH: '#34d399', FS: '#2dd4bf',
-}
+import { PITCH_COLORS } from '../utils/pitchColors'
 
 const RESULT_FILL = {
   whiff:   { fill: 'rgba(74,222,128,0.85)',  stroke: '#4ade80' },

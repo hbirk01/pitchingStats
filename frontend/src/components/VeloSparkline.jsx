@@ -1,11 +1,6 @@
 import React from 'react'
 import { LineChart, Line, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-
-const PITCH_COLORS = {
-  FF: '#f87171', SI: '#fb923c', FC: '#fbbf24',
-  SL: '#22d3ee', ST: '#38bdf8', CU: '#60a5fa',
-  KC: '#818cf8', CH: '#34d399', FS: '#2dd4bf',
-}
+import { PITCH_COLORS } from '../utils/pitchColors'
 
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null

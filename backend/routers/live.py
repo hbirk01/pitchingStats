@@ -160,6 +160,18 @@ def live_game_detail(game_pk: int):
     walks       = int(cp_box.get("baseOnBalls", 0) or 0)
     pitch_count = int(cp_box.get("numberOfPitches", 0) or 0)
 
+    # ── Baserunners ────────────────────────────────────────────────────────
+    offense = linescore.get("offense", {})
+    runners = []
+    for base_num, key in ((1, "first"), (2, "second"), (3, "third")):
+        runner = offense.get(key)
+        if runner:
+            runners.append({
+                "base": base_num,
+                "name": runner.get("fullName", "Unknown"),
+                "id":   runner.get("id"),
+            })
+
     # ── Linescore innings ──────────────────────────────────────────────────
     innings_raw = linescore.get("innings", [])
     linescore_innings = []
@@ -276,6 +288,16 @@ def live_game_detail(game_pk: int):
                 "strikes":      count_s,
                 "batter":       batter_name,
                 "pa_index":     pa_idx,
+                # Physics params for 3D trajectory animation
+                "x0":  coords.get("x0"),
+                "y0":  coords.get("y0"),
+                "z0":  coords.get("z0"),
+                "vx0": coords.get("vX0"),
+                "vy0": coords.get("vY0"),
+                "vz0": coords.get("vZ0"),
+                "ax":  coords.get("aX"),
+                "ay":  coords.get("aY"),
+                "az":  coords.get("aZ"),
             })
 
     # Per-pitch-type velocity summary
@@ -335,4 +357,5 @@ def live_game_detail(game_pk: int):
         "pitch_type_velo_summary": pitch_type_velo_summary,
         "whiff_pct":              whiff_pct,
         "gb_pct":                 gb_pct,
+        "runners":                runners,
     }

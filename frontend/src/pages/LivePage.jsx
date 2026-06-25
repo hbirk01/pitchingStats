@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Radio, RefreshCw, ChevronRight, Loader2, User } from 'lucide-react'
 import { getLiveGames, getLiveGame } from '../utils/api'
+import { PITCH_COLORS } from '../utils/pitchColors'
 import LiveGameCard from '../components/LiveGameCard'
 import PitchLog from '../components/PitchLog'
 import VeloSparkline from '../components/VeloSparkline'
 import StrikeZonePlot from '../components/StrikeZonePlot'
 import Linescore from '../components/Linescore'
-
-const PITCH_COLORS = {
-  FF: '#f87171', SI: '#fb923c', FC: '#fbbf24',
-  SL: '#22d3ee', ST: '#38bdf8', SV: '#93c5fd',
-  CU: '#60a5fa', KC: '#818cf8',
-  CH: '#34d399', FS: '#2dd4bf',
-}
+import PitchScene from '../components/three/PitchScene'
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
@@ -238,7 +233,7 @@ function FinalPanel({ detail, game }) {
 }
 
 function LiveDetailPanel({ detail, loading, game }) {
-  const [activeTab, setActiveTab] = useState('zone')
+  const [activeTab, setActiveTab] = useState('3d')
   const cp       = detail.current_pitcher || {}
   const ptCounts = detail.pitch_type_counts || {}
   const veloSum  = detail.pitch_type_velo_summary || {}
@@ -314,8 +309,9 @@ function LiveDetailPanel({ detail, loading, game }) {
 
       {/* ── Zone / Velo / Log tabs ── */}
       <div>
-        <div className="flex gap-1 mb-4">
+        <div className="flex gap-1 mb-4 flex-wrap">
           {[
+            ['3d',    '3D Field'],
             ['zone',  'Zone Plot'],
             ['velo',  'Velocity'],
             ['log',   'Pitch Log'],
@@ -327,6 +323,13 @@ function LiveDetailPanel({ detail, loading, game }) {
             </button>
           ))}
         </div>
+
+        {activeTab === '3d' && (
+          <div>
+            <p className="section-title mb-3">3D Field View · Drag to rotate · Scroll to zoom</p>
+            <PitchScene pitches={detail.pitch_log || []} runners={detail.runners || []} />
+          </div>
+        )}
 
         {activeTab === 'zone' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
