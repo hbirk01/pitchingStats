@@ -102,6 +102,9 @@ export default function PlayerDashboard() {
 
   const changeSeason = (s) => setSearchParams({ season: s, name: playerName })
 
+  const { isWatched, toggle } = useWatchlist()
+  const watched = isWatched(playerId)
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-32 gap-4">
       <Loader2 className="w-10 h-10 animate-spin text-brand-400" />
@@ -121,9 +124,6 @@ export default function PlayerDashboard() {
       </div>
     </div>
   )
-
-  const { isWatched, toggle } = useWatchlist()
-  const watched = isWatched(playerId)
 
   const trad = dashboard?.traditional || {}
   const pred = dashboard?.predictive || {}

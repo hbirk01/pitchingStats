@@ -8,8 +8,74 @@ from services.statcast_service import (
 )
 import pandas as pd
 import numpy as np
+import requests as _requests
 
 router = APIRouter()
+
+
+def _mlb_traditional_stats(player_id: int, season: int) -> dict:
+    """Fetch all official base stats from MLB Stats API. Never calculate what MLB tracks."""
+    try:
+        url = (f"https://statsapi.mlb.com/api/v1/people/{player_id}/stats"
+               f"?stats=season&group=pitching&season={season}")
+        r = _requests.get(url, timeout=8)
+        splits = r.json()["stats"][0]["splits"]
+        if not splits:
+            return {}
+        s = splits[0]["stat"]
+
+        def _f(key, fallback=None):
+            v = s.get(key)
+            return fallback if v in (None, "-.--", "") else v
+
+        def _ff(key):
+            v = _f(key)
+            return float(v) if v is not None else None
+
+        ip_str = _f("inningsPitched", "0")
+        try:
+            # "32.1" → 32 full innings + 1 out = 32.333...
+            parts = str(ip_str).split(".")
+            ip = int(parts[0]) + int(parts[1]) / 3 if len(parts) == 2 else float(ip_str)
+        except Exception:
+            ip = None
+
+        k  = _f("strikeOuts")
+        bb = _f("baseOnBalls")
+        bf = _f("battersFaced")
+        hr = _f("homeRuns")
+        h  = _f("hits")
+        er = _f("earnedRuns")
+        hbp= _f("hitBatsmen", 0)
+
+        k_pct  = round(k  / bf * 100, 1) if k  is not None and bf else None
+        bb_pct = round(bb / bf * 100, 1) if bb is not None and bf else None
+        babip_denom = (bf - k - bb - hr) if all(v is not None for v in [bf, k, bb, hr]) else None
+        babip = round((h - hr) / babip_denom, 3) if babip_denom and babip_denom > 0 and h is not None and hr is not None else None
+
+        return {
+            "era":    _ff("era"),
+            "whip":   _ff("whip"),
+            "wins":   _f("wins"),
+            "losses": _f("losses"),
+            "ip":     ip_str,   # display string e.g. "32.1"
+            "ip_f":   ip,       # float for math e.g. 32.333
+            "k":      k,
+            "bb":     bb,
+            "bf":     bf,
+            "hr":     hr,
+            "h":      h,
+            "er":     er,
+            "hbp":    hbp,
+            "k_pct":  k_pct,
+            "bb_pct": bb_pct,
+            "babip":  babip,
+            "games":  _f("gamesPlayed"),
+            "gs":     _f("gamesStarted"),
+            "saves":  _f("saves"),
+        }
+    except Exception:
+        return {}
 
 
 def _safe_round(val, digits=2):
@@ -47,18 +113,21 @@ def pitcher_dashboard(
     total_pitches = len(df)
     games = df["game_pk"].nunique() if "game_pk" in df.columns else None
 
-    k_events = df[df["events"] == "strikeout"]
-    bb_events = df[df["events"] == "walk"]
-    ip_outs = df[df["events"].isin(["strikeout", "field_out", "force_out", "grounded_into_double_play",
-                                     "fielders_choice_out", "double_play", "sac_fly"])].shape[0]
-    ip = round(ip_outs / 3, 1)
-
-    earned_runs = df[df["events"].isin(["home_run"])].shape[0] * 1.3  # proxy
-    era = round((earned_runs * 9 / ip), 2) if ip > 0 else None
-
-    pa = df[df["events"].notna()]["events"].count()
-    k_pct = round(len(k_events) / pa * 100, 1) if pa > 0 else None
-    bb_pct = round(len(bb_events) / pa * 100, 1) if pa > 0 else None
+    # All official base stats from MLB Stats API — never calculate what they track
+    mlb = _mlb_traditional_stats(player_id, season)
+    era    = mlb.get("era")
+    whip   = mlb.get("whip")
+    wins   = mlb.get("wins")
+    losses = mlb.get("losses")
+    ip     = mlb.get("ip")      # display string
+    ip_f   = mlb.get("ip_f") or 0  # float for math
+    k_pct  = mlb.get("k_pct")
+    bb_pct = mlb.get("bb_pct")
+    # IP fallback for Statcast-derived pitch-count features only
+    if not ip:
+        ip_outs = df[df["events"].isin(["strikeout", "field_out", "force_out", "grounded_into_double_play",
+                                         "fielders_choice_out", "double_play", "sac_fly"])].shape[0]
+        ip = round(ip_outs / 3, 1)
 
     # xBA / xwOBA / xERA from Statcast columns
     xba = _safe_round(df["estimated_ba_using_speedangle"].mean(), 3) if "estimated_ba_using_speedangle" in df.columns else None
@@ -147,14 +216,20 @@ def pitcher_dashboard(
         "ip": ip,
         "traditional": {
             "era": era,
+            "whip": whip,
+            "wins": wins,
+            "losses": losses,
             "k_pct": k_pct,
             "bb_pct": bb_pct,
-            "strikeouts": len(k_events),
-            "walks": len(bb_events),
+            "strikeouts": mlb.get("k"),
+            "walks": mlb.get("bb"),
+            "bf": mlb.get("bf"),
+            "babip": mlb.get("babip"),
         },
         "predictive": {
             "xba": xba,
             "xwoba": xwoba,
+            "xera": round(float(xwoba) * 12.5, 2) if xwoba else None,
         },
         "pitch_summary": pitch_summary,
         "tunneling": tunneling_results,
@@ -313,19 +388,11 @@ def pitcher_seasons(player_id: int, seasons: str = "2024,2023,2022,2021"):
             return season, None
         df_e = calc_vaa(calc_spin_efficiency(df))
 
-        pa_df = df[df["events"].notna()]
-        pa = len(pa_df)
-        k = (pa_df["events"] == "strikeout").sum()
-        bb = (pa_df["events"] == "walk").sum()
-        hr = (pa_df["events"] == "home_run").sum()
-        ip_outs = df[df["events"].isin(["strikeout","field_out","force_out",
-                      "grounded_into_double_play","fielders_choice_out",
-                      "double_play","sac_fly"])].shape[0]
-        ip = ip_outs / 3
-
-        era_proxy = round((hr * 1.3 * 9 / ip), 2) if ip > 0 else None
-        k_pct = round(k / pa * 100, 1) if pa > 0 else None
-        bb_pct = round(bb / pa * 100, 1) if pa > 0 else None
+        # Official base stats from MLB Stats API
+        mlb = _mlb_traditional_stats(player_id, season)
+        era   = mlb.get("era")
+        k_pct = mlb.get("k_pct")
+        bb_pct= mlb.get("bb_pct")
 
         swings = df["description"].isin(["swinging_strike","swinging_strike_blocked",
                                           "foul","foul_tip","hit_into_play"])
@@ -350,8 +417,8 @@ def pitcher_seasons(player_id: int, seasons: str = "2024,2023,2022,2021"):
             "season": season,
             "total_pitches": len(df),
             "games": int(df["game_pk"].nunique()) if "game_pk" in df.columns else None,
-            "ip": round(ip, 1),
-            "era": era_proxy,
+            "ip": mlb.get("ip_str"),
+            "era": era,
             "k_pct": k_pct,
             "bb_pct": bb_pct,
             "whiff_pct": whiff_pct,
@@ -438,15 +505,17 @@ def pitcher_siera(player_id: int, season: int = 2024):
     if df is None or df.empty:
         raise HTTPException(404, "No data found")
 
-    # Count plate appearances and outcomes
-    pa_df = df[df["events"].notna()]
-    pa = len(pa_df)
-    k = (pa_df["events"] == "strikeout").sum()
-    bb = (pa_df["events"] == "walk").sum()
-    hbp = (pa_df["events"] == "hit_by_pitch").sum()
-    hr = (pa_df["events"] == "home_run").sum()
+    # Base stats from MLB Stats API (K, BB, HR, IP, HBP are official counts)
+    mlb = _mlb_traditional_stats(player_id, season)
+    k   = mlb.get("k")   or 0
+    bb  = mlb.get("bb")  or 0
+    hr  = mlb.get("hr")  or 0
+    hbp = mlb.get("hbp") or 0
+    bf  = mlb.get("bf")  or 0
+    ip  = mlb.get("ip_f") or 0  # float for FIP/xFIP/SIERA formulas
+    pa  = bf  # battersFaced is the correct denominator for rate stats
 
-    # Ground/fly/line breakdown from bb_type
+    # Ground/fly/line breakdown — Statcast bb_type is the only source for these
     contact = df[df["bb_type"].notna()]
     gb = (contact["bb_type"] == "ground_ball").sum()
     fb = (contact["bb_type"] == "fly_ball").sum()
@@ -454,42 +523,30 @@ def pitcher_siera(player_id: int, season: int = 2024):
     pu = (contact["bb_type"] == "popup").sum()
     total_bip = gb + fb + ld + pu
 
-    ip_outs = df[df["events"].isin(["strikeout","field_out","force_out",
-                  "grounded_into_double_play","fielders_choice_out",
-                  "double_play","sac_fly"])].shape[0]
-    ip = ip_outs / 3
-
     # FIP constants
-    FIP_C = {2024: 3.17, 2023: 3.16, 2022: 3.11, 2021: 3.17, 2020: 3.13}
+    FIP_C = {2026: 3.18, 2025: 3.19, 2024: 3.17, 2023: 3.16, 2022: 3.11, 2021: 3.17, 2020: 3.13}
     c = FIP_C.get(season, 3.15)
 
-    fip = round((13*hr + 3*(bb+hbp) - 2*k) / ip + c, 2) if ip > 0 else None
-
-    # xFIP: normalise HR/FB to league avg 10.5%
-    lg_hr_fb = 0.105
-    xhr = fb * lg_hr_fb
+    # FIP and xFIP are legitimately calculated stats (not official), but built on official inputs
+    fip  = round((13*hr + 3*(bb+hbp) - 2*k) / ip + c, 2) if ip > 0 else None
+    xhr  = fb * 0.105  # xFIP normalises HR/FB to league-avg 10.5%
     xfip = round((13*xhr + 3*(bb+hbp) - 2*k) / ip + c, 2) if ip > 0 else None
 
-    # SIERA (Steamer simplified)
-    # SIERA = 6.145 - 16.986*(K/PA) + 11.434*(BB/PA)
-    #        - 1.858*((GB-FB-HR)/PA)
-    #        + 7.653*(K/PA)^2 + (-6.664)*(BB/PA)^2
-    #        + 10.130*(K/PA)*((GB-FB)/PA)
-    #        + (-5.195)*(BB/PA)*((GB-FB)/PA)
+    # SIERA formula (Steamer) — calculated stat, uses official K/BB/BF + Statcast GB/FB
     siera = None
     if pa > 0 and ip > 0:
-        kpa = k / pa
+        kpa  = k  / pa
         bbpa = bb / pa
         gbfb = (gb - fb) / pa
         siera = round(
             6.145
             - 16.986 * kpa
             + 11.434 * bbpa
-            - 1.858 * gbfb
-            + 7.653 * kpa**2
-            - 6.664 * bbpa**2
-            + 10.130 * kpa * gbfb
-            - 5.195 * bbpa * gbfb,
+            - 1.858  * gbfb
+            + 7.653  * kpa**2
+            - 6.664  * bbpa**2
+            + 10.130 * kpa  * gbfb
+            - 5.195  * bbpa * gbfb,
             2
         )
 
