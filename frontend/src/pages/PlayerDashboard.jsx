@@ -30,7 +30,13 @@ import { getPitcherSplits, getPitchTrajectories, getPitcherSIERA, getPitchComps,
 import { useWatchlist } from '../hooks/useWatchlist'
 import LeverageSplitsPanel from '../components/LeverageSplitsPanel'
 
-const TABS = ['Overview', 'Pitch Arsenal', 'Arsenal Grades', 'Run Value', 'Splits', 'Zone Map', 'Trajectory', 'SIERA & Health', 'Comps', 'Season Compare', 'Sequencing', 'Batted Ball', 'Fatigue', 'Leverage', 'VAA & Spin', 'Tunneling', 'Command', 'Breakout', 'Regression']
+const TAB_GROUPS = [
+  { label: 'Core',       tabs: ['Overview', 'Pitch Arsenal', 'Arsenal Grades', 'Run Value'] },
+  { label: 'Situational',tabs: ['Splits', 'Leverage', 'Sequencing', 'Batted Ball'] },
+  { label: 'Mechanics',  tabs: ['Zone Map', 'Trajectory', 'VAA & Spin', 'Tunneling', 'Command', 'Fatigue'] },
+  { label: 'Analytics',  tabs: ['Season Compare', 'SIERA & Health', 'Comps', 'Breakout', 'Regression'] },
+]
+const ALL_TABS = TAB_GROUPS.flatMap(g => g.tabs)
 const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021]
 
 export default function PlayerDashboard() {
@@ -56,6 +62,7 @@ export default function PlayerDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('Overview')
+  const [activeGroup, setActiveGroup] = useState('Core')
 
   const load = async () => {
     setLoading(true)
@@ -121,70 +128,106 @@ export default function PlayerDashboard() {
   const trad = dashboard?.traditional || {}
   const pred = dashboard?.predictive || {}
 
+  const switchGroup = (grp) => {
+    setActiveGroup(grp)
+    const firstTab = TAB_GROUPS.find(g => g.label === grp)?.tabs[0]
+    if (firstTab) setActiveTab(firstTab)
+  }
+
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <PlayerPhoto playerId={playerId} name={playerName} size="lg" />
-          <div>
-            <Link to="/" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300 mb-2 transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to search
-            </Link>
-            <h1 className="text-2xl font-bold text-slate-100">{playerName}</h1>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-slate-500 text-sm">{dashboard?.total_pitches?.toLocaleString()} pitches · {dashboard?.games} games · {dashboard?.ip} IP</span>
-              <Link to={`/player/${playerId}/game-log?season=${season}&name=${encodeURIComponent(playerName)}`}
-                className="text-xs text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 rounded px-2 py-0.5">
-                Game Log →
-              </Link>
-              <button
-                onClick={() => toggle({ id: playerId, name: playerName, season })}
-                className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors ${watched ? 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10' : 'text-slate-500 border-surface-500 hover:text-yellow-400'}`}
-                title={watched ? 'Remove from watchlist' : 'Add to watchlist'}>
-                <Star className={`w-3 h-3 ${watched ? 'fill-yellow-400' : ''}`} />
-                {watched ? 'Watching' : 'Watch'}
-              </button>
+      {/* ── Player Banner ── */}
+      <div className="player-banner rounded-2xl p-5 sm:p-6 mb-6 bg-dots">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-300 mb-4 transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to search
+        </Link>
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          {/* Left: photo + identity */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-400/40 to-cyan-400/20 blur-sm" />
+              <div className="relative">
+                <PlayerPhoto playerId={playerId} name={playerName} size="xl" />
+              </div>
+            </div>
+            <div>
+              <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink-50 leading-tight tracking-tight">{playerName}</h1>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className="text-sm text-ink-500 font-medium">{dashboard?.total_pitches?.toLocaleString()} pitches</span>
+                <span className="text-surface-550">·</span>
+                <span className="text-sm text-ink-500 font-medium">{dashboard?.games} G</span>
+                <span className="text-surface-550">·</span>
+                <span className="text-sm text-ink-500 font-medium">{dashboard?.ip} IP</span>
+                <Link to={`/player/${playerId}/game-log?season=${season}&name=${encodeURIComponent(playerName)}`}
+                  className="badge badge-brand text-[11px] hover:bg-brand-500/25 transition-colors">
+                  Game Log →
+                </Link>
+                <button
+                  onClick={() => toggle({ id: playerId, name: playerName, season })}
+                  className={`badge transition-colors ${watched
+                    ? 'bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400/20'
+                    : 'bg-surface-700 text-ink-500 border border-surface-550 hover:text-amber-300 hover:border-amber-400/30'}`}>
+                  <Star className={`w-3 h-3 ${watched ? 'fill-amber-300' : ''}`} />
+                  {watched ? 'Watching' : 'Watch'}
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Right: season picker */}
+          <div className="flex gap-1 flex-wrap">
+            {SEASONS.map(s => (
+              <button key={s} onClick={() => changeSeason(s)}
+                className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all duration-150 ${
+                  s === season
+                    ? 'text-white shadow-glow-xs'
+                    : 'bg-surface-750/60 text-ink-500 hover:text-ink-200 hover:bg-surface-700 border border-surface-650/60'
+                }`}
+                style={s === season ? { background: 'linear-gradient(135deg, #7c77ff, #5649e8)' } : {}}>
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2">
-          {SEASONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => changeSeason(s)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                s === season ? 'bg-brand-600 text-white' : 'bg-surface-700 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {s}
+
+        {/* Stat bar */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-5 pt-4 border-t border-surface-650/50">
+          {[
+            { label: 'ERA',   val: trad.era ?? '—',                  tip: 'ERA' },
+            { label: 'xERA',  val: pred.xera ?? '—',                 tip: 'XERA' },
+            { label: 'K%',    val: trad.k_pct ? `${trad.k_pct}%`:'—', tip: 'K%' },
+            { label: 'BB%',   val: trad.bb_pct ? `${trad.bb_pct}%`:'—', tip: 'BB%' },
+            { label: 'xBA',   val: pred.xba ?? '—',                  tip: 'XBA' },
+            { label: 'xwOBA', val: pred.xwoba ?? '—',                tip: 'XWOBA' },
+          ].map(({ label, val, tip }) => (
+            <div key={label} className="text-center">
+              <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-600 font-display mb-1">
+                <StatTooltip stat={tip}>{label}</StatTooltip>
+              </div>
+              <div className="font-display text-2xl font-bold text-ink-50 count-up">{val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Tab navigation: group level ── */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="tab-group-bar">
+          {TAB_GROUPS.map(g => (
+            <button key={g.label} onClick={() => switchGroup(g.label)}
+              className={activeGroup === g.label ? 'tab-group-active' : 'tab-group-inactive'}>
+              {g.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Top stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard label={<StatTooltip stat="ERA">ERA</StatTooltip>} value={trad.era ?? '—'} highlight />
-        <StatCard label={<StatTooltip stat="XERA">xERA</StatTooltip>} value={pred.xera ?? '—'} />
-        <StatCard label={<StatTooltip stat="K%">K%</StatTooltip>} value={trad.k_pct ? `${trad.k_pct}%` : '—'} />
-        <StatCard label={<StatTooltip stat="BB%">BB%</StatTooltip>} value={trad.bb_pct ? `${trad.bb_pct}%` : '—'} />
-        <StatCard label={<StatTooltip stat="XBA">xBA</StatTooltip>} value={pred.xba ?? '—'} />
-        <StatCard label={<StatTooltip stat="XWOBA">xwOBA</StatTooltip>} value={pred.xwoba ?? '—'} />
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === t
-                ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-surface-700'
-            }`}
-          >
+      {/* Sub-tab level */}
+      <div className="sub-tab-bar mb-6">
+        {TAB_GROUPS.find(g => g.label === activeGroup)?.tabs.map(t => (
+          <button key={t} onClick={() => setActiveTab(t)}
+            className={activeTab === t ? 'sub-tab-active' : 'sub-tab-inactive'}>
             {t}
           </button>
         ))}

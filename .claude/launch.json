@@ -4,8 +4,9 @@
     {
       "name": "pitchiq-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5174"],
-      "port": 5174
+      "runtimeArgs": ["run", "dev", "--", "--port", "5180"],
+      "cwd": "/Users/Harvin/PitchIQ/frontend",
+      "port": 5180
     }
   ]
 }
