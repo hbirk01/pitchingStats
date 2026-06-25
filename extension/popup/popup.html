@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PitchIQ</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="header">
+    <span class="dot-live" id="status-dot"></span>
+    <span class="title">PitchIQ Live</span>
+    <a class="dashboard-link" href="http://localhost:5180" target="_blank">Dashboard ↗</a>
+  </div>
+
+  <div id="error-banner" class="error-banner" style="display:none"></div>
+
+  <div class="section-label">SELECT GAME</div>
+  <div id="games-list" class="games-list">
+    <div class="loading">Loading games…</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="controls">
+    <div class="control-row">
+      <span class="control-label">Overlay opacity</span>
+      <input type="range" id="opacity-slider" min="15" max="98" value="92" />
+      <span class="opacity-val" id="opacity-val">92%</span>
+    </div>
+    <div class="control-row" style="margin-top:6px">
+      <span class="control-label">Show overlay</span>
+      <button class="toggle-btn" id="toggle-overlay">Hide</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
